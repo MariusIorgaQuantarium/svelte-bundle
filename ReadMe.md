@@ -1,5 +1,7 @@
 > ⚠️ **NOTICE:** While this tool is currently functional, it has not nearly been battle-tested enough to ensure it works in most use-cases.
 
+npm pack
+
 ## Usage
 This tool can be used with `npx`:
 ```bash

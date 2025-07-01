@@ -13,10 +13,16 @@ import autoprefixer from 'autoprefixer';
 import cssnano from 'cssnano';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import sveltePreprocess from 'svelte-preprocess'
+import json from '@rollup/plugin-json';
+import typescript from '@rollup/plugin-typescript';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+console.log('__filename', __filename);
+console.log('dirname', __dirname);
 
 export async function buildStaticFile(svelteFilePath, outputDir, options = {}) {
   const { useTailwind = false, tailwindConfig = null } = options;
@@ -69,13 +75,19 @@ export async function buildStaticFile(svelteFilePath, outputDir, options = {}) {
       globalCssText = processedCss.css;
     }
 
+
     // Get the absolute path to svelte/internal
     const svelteInternalPath = require.resolve('svelte/internal');
     
+
     // Create temporary SSR bundle
     const ssrBundle = await rollup({
       input: svelteFilePath,
       plugins: [
+        json(),
+        typescript({
+          sourceMap: false,
+        }),
         svelte({
           compilerOptions: {
             generate: 'ssr',
@@ -83,14 +95,14 @@ export async function buildStaticFile(svelteFilePath, outputDir, options = {}) {
             css: false
           },
           emitCss: true,
-          preprocess: useTailwind ? {
+          preprocess: sveltePreprocess(useTailwind ? {
             style: async ({ content }) => {
               if (!content) return { code: '' };
               const result = await postcss(postcssPlugins)
                 .process(content, { from: undefined });
               return { code: result.css };
             }
-          } : undefined
+          } : undefined)
         }),
         css({
           output: function(styles) {
@@ -108,46 +120,62 @@ export async function buildStaticFile(svelteFilePath, outputDir, options = {}) {
       external: ['svelte/internal']
     });
 
+
     // Create a temporary directory in the CLI package directory
     const tempDir = path.join(__dirname, '.temp');
+    // console.log('tempDir', tempDir)
     await fs.mkdir(tempDir, { recursive: true });
     const tempSSRFile = path.join(tempDir, 'ssr-bundle.js');
 
-    // Generate SSR bundle as ESM
-    await ssrBundle.write({
-      file: tempSSRFile,
-      format: 'es',
-      exports: 'default',
-      paths: {
-        'svelte/internal': svelteInternalPath
-      }
-    });
 
-    // Import the SSR bundle using dynamic import
-    const { default: App } = await import(/* @vite-ignore */`file://${tempSSRFile}`);
-    const { html: initialHtml } = App.render();
+    // // Generate SSR bundle as ESM
+    // await ssrBundle.write({
+    //   file: tempSSRFile,
+    //   format: 'es',
+    //   exports: 'default',
+    //   paths: {
+    //     'svelte/internal': svelteInternalPath
+    //   }
+    // });
 
-    // Clean up temp files
-    await fs.rm(tempDir, { recursive: true, force: true });
+    // console.log(6, tempSSRFile, 'svelteInternalPath', svelteInternalPath, `file://${tempSSRFile}`.replace(/\\/g, '/'))
+
+
+    // // Import the SSR bundle using dynamic import
+    // const { default: App } = await import(/* @vite-ignore */`file://${tempSSRFile}`.replace(/\\/g, '/'));
+    // const { html: initialHtml } = App.render();
+
+    // console.log(7)
+
+
+    // // Clean up temp files
+    // await fs.rm(tempDir, { recursive: true, force: true });
+
+    // console.log(8)
+
 
     // Build client-side bundle
     const clientBundle = await rollup({
       input: svelteFilePath,
       plugins: [
+        json(),
+        typescript({
+          sourceMap: false,
+        }),
         svelte({
           compilerOptions: {
             hydratable: true,
             css: false
           },
           emitCss: true,
-          preprocess: useTailwind ? {
+          preprocess: sveltePreprocess(useTailwind ? {
             style: async ({ content }) => {
               if (!content) return { code: '' };
               const result = await postcss(postcssPlugins)
                 .process(content, { from: undefined });
               return { code: result.css };
             }
-          } : undefined
+          } : undefined)
         }),
         css({
           output: function(styles) {
@@ -165,20 +193,35 @@ export async function buildStaticFile(svelteFilePath, outputDir, options = {}) {
       ]
     });
 
+
+
     const { output: [{ code: clientCode }] } = await clientBundle.generate({
       format: 'iife',
-      name: 'App',
+      name: options.appName,
       globals: {
         svelte: 'Svelte'
       }
     });
 
+
+
     // Create the final HTML
-    const finalHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Static Svelte App</title><style>${globalCssText}${cssText}</style></head><body><div id="app">${initialHtml}</div><script>${clientCode}const app=new App({target:document.getElementById("app"),hydrate:!0});</script></body></html>`;
+    // const finalHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Static Svelte App</title><style>${globalCssText}${cssText}</style></head><body><div id="app">${initialHtml}</div><script>${clientCode}const app=new App({target:document.getElementById("app"),hydrate:!0});</script></body></html>`;
+    // const finalHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Static Svelte App</title><style>${globalCssText}${cssText}</style></head><body><div id="app"></div><script>${clientCode}const app=new App({target:document.getElementById("app"),hydrate:!0});</script></body></html>`;
+
+    const finalJS = clientCode
+    // globalCssText is the tailwind css
+    const finalCSS = `${cssText}${globalCssText}`
 
     // Write the output file
-    const outputPath = path.join(outputDir, 'output.html');
-    await fs.writeFile(outputPath, finalHtml, 'utf-8');
+    // const outputPath = path.join(outputDir, 'output.html');
+    const outputCSSPath = path.join(outputDir, 'widget.css');
+    const outputJSPath = path.join(outputDir, 'widget.js');
+
+    // await fs.writeFile(outputPath, finalHtml, 'utf-8');
+    await fs.writeFile(outputCSSPath, finalCSS, 'utf-8');
+    await fs.writeFile(outputJSPath, finalJS, 'utf-8');
+
   } catch (error) {
     console.error('Build error:', error);
     throw error;

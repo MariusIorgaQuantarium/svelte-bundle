@@ -35,8 +35,10 @@
   "license": "MIT",
   "dependencies": {
     "@rollup/plugin-commonjs": "^24.0.1",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.0.2",
     "@rollup/plugin-terser": "^0.4.0",
+    "@rollup/plugin-typescript": "^12.1.2",
     "autoprefixer": "^10.4.20",
     "chalk": "^5.3.0",
     "commander": "^11.0.0",
@@ -46,7 +48,11 @@
     "rollup-plugin-postcss": "^4.0.2",
     "rollup-plugin-svelte": "^7.1.4",
     "svelte": "^3.58.0",
-    "tailwindcss": "^3.4.14"
+    "svelte-bundle": "file:svelte-bundle-0.0.23.tgz",
+    "svelte-preprocess": "^5.1.4",
+    "tailwindcss": "^3.4.14",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^2.1.3",

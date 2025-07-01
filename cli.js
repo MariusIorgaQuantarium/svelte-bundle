@@ -40,6 +40,7 @@ program
   .version(packageJson.version)
   .requiredOption('-i, --input <path>', 'Input Svelte file')
   .option('-o, --output <path>', 'Output directory (defaults to current directory)')
+  .option('-n, --name <string>', 'App name (defaults to "App")')
   .option('--tw', 'Enable Tailwind CSS processing')
   .option('--tw-config <path>', 'Path to custom Tailwind config file')
   .option('-f, --force', 'Force overwrite without asking');
@@ -49,9 +50,15 @@ program.parse();
 const options = program.opts();
 
 async function loadTailwindConfig(configPath) {
-  const fullPath = path.resolve(configPath);
+
+  console.log('configPath', configPath)
+// !!!!! this only works and is requiredin windows
+  const fullPath = "file:///" + path.resolve(configPath);
+  console.log('fullPath', fullPath)
+
   try {
     const { default: config } = await import(fullPath);
+    console.log('config', config)
     return config;
   } catch (error) {
     console.error(chalk.red(`Error loading Tailwind config: ${error.message}`));
@@ -106,6 +113,8 @@ async function validateAndProcess() {
       outputDir = path.resolve(options.output);
     }
 
+    console.log('outputDir', outputDir)
+
     const outputPath = path.join(outputDir, 'output.html');
 
     // Check if output file exists
@@ -130,7 +139,8 @@ async function validateAndProcess() {
 
     const buildOptions = {
       useTailwind: options.tw || false,
-      tailwindConfig: tailwindConfig
+      tailwindConfig: tailwindConfig,
+      appName: options.name || 'App',
     };
 
     await buildStaticFile(inputPath, outputDir, buildOptions);
